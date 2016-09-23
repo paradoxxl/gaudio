@@ -2,10 +2,10 @@ package main
 
 import(
 "azul3d.org/engine/native/al"
-
 	"fmt"
 	"log"
 	"time"
+	"unsafe"
 )
 
 
@@ -50,6 +50,7 @@ func main() {
 		}
 	}
 
+
 	stopprogram:= make(chan interface{})
 	stoprecording:= make(chan interface{})
 
@@ -68,6 +69,10 @@ func main() {
 func capture(device *al.Device,stoprecording chan interface{},stopprogram chan interface{}){
 	device.StartCapture()
 	fmt.Println("Started Capturing")
+
+	var buffer = make([]uint32,20)
+	bufptr:= unsafe.Pointer(&buffer)
+
 	for{
 		select{
 		case <-stoprecording:
@@ -77,6 +82,9 @@ func capture(device *al.Device,stoprecording chan interface{},stopprogram chan i
 			return
 		default:
 		//record
+		//device.AlcGetIntegerv(al.ALC_CAPTURE_SAMPLES,al.SIZE,sample)
+			device.CaptureSamples(bufptr,10)
+			fmt.Println(buffer)
 		}
 	}
 }
