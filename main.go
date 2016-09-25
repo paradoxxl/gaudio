@@ -1,92 +1,46 @@
+//+build windows
+
 package main
 
 import(
-"azul3d.org/engine/native/al"
-	"fmt"
-	"log"
+
+)
+import (
+	"os/exec"
+	//"time"
+	"os"
+	"math/rand"
+	"strconv"
 	"time"
-	"unsafe"
 )
 
-
 func main() {
+	//ffmpeg  -f dshow -i audio="Microphone (Realtek High Definition Audio)" yo.mp3
 
-	captureDevices := al.StringList(al.AlcGetRawString(nil, al.ALC_CAPTURE_DEVICE_SPECIFIER))
-	for i, device := range captureDevices {
-		fmt.Printf("capture device %d. %q\n", i, device)
-	}
-	fmt.Println("")
+	inputDeviceName := "Microphone (Realtek High Definition Audio)"
+	rand.Seed(time.Now().UTC().UnixNano())
+	outputFile := strconv.Itoa(rand.Int()) +".mp3"//time.Now().String() + ".mp3"
 
-	allDevices := al.StringList(al.AlcGetRawString(nil, al.ALC_DEVICE_SPECIFIER))
-	for i, device := range allDevices {
-		fmt.Printf("device %d. %q\n", i, device)
-	}
-
-	defaultDevice := al.AlcGetString(nil, al.ALC_CAPTURE_DEFAULT_DEVICE_SPECIFIER)
-	fmt.Printf("Default Device: %v\n", defaultDevice)
-
-	device,err := al.OpenDevice(captureDevices[1],nil)
-	if err != nil{
-		fmt.Println(err)
-	}
-	//defer device.Close()
-
-	fmt.Println("Opened device")
-
-	haveCapture := device.AlcIsExtensionPresent("ALC_EXT_CAPTURE")
-
-	var maxSources int32
-	device.AlcGetIntegerv(al.ALC_MONO_SOURCES, 1, &maxSources)
-	fmt.Print("Maximum sources:", maxSources)
-
-
-
-
-	if haveCapture && len(captureDevices) > 0 {
-		fmt.Println("Have the ALC_EXT_CAPTURE extension.")
-		err = device.InitCapture(44100, al.FORMAT_MONO16, 44100*2)
-		if err != nil {
-			log.Fatal(err)
-		}
+	cmd := exec.Command("C:/Dev/ffmpeg/bin/ffmpeg.exe", "-f","dshow", "-i","audio=" + inputDeviceName, outputFile)
+	//cmd := exec.Command("C:/Dev/ffmpeg/bin/ffmpeg.exe")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	err := cmd.Start()
+	if err != nil {
+		println(err.Error())
 	}
 
 
-	stopprogram:= make(chan interface{})
-	stoprecording:= make(chan interface{})
 
-	go capture(device,stoprecording,stopprogram)
-	time.AfterFunc(time.Second*1,func(){
-		stoprecording<-1
+	time.AfterFunc(time.Second*5,func(){
+		cmd.Process.Kill()
 	})
 
 
-	<-stopprogram
-
-	device.Close()
-
-}
-
-func capture(device *al.Device,stoprecording chan interface{},stopprogram chan interface{}){
-	device.StartCapture()
-	fmt.Println("Started Capturing")
-
-	var buffer = make([]uint32,20)
-	bufptr:= unsafe.Pointer(&buffer)
-
-	for{
-		select{
-		case <-stoprecording:
-			device.StopCapture()
-			fmt.Println("Stopped Capturing")
-			stopprogram<-1
-			return
-		default:
-		//record
-		//device.AlcGetIntegerv(al.ALC_CAPTURE_SAMPLES,al.SIZE,sample)
-			device.CaptureSamples(bufptr,10)
-			fmt.Println(buffer)
-		}
+	err = cmd.Wait()
+	if err != nil {
+		println(err.Error())
 	}
+
 }
-
-
